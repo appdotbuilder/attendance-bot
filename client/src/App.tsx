@@ -11,7 +11,8 @@ import { AlertCircle, Users, BookOpen, GraduationCap, MessageSquare, Calendar, B
 import { trpc } from '@/utils/trpc';
 import type { 
   User, Student, Teacher, Class, Subject,
-  ChatbotMessageInput, CreateUserInput, CreateStudentInput, CreateTeacherInput
+  ChatbotMessageInput, CreateUserInput, CreateStudentInput, CreateTeacherInput,
+  CreateClassInput, CreateSubjectInput
 } from '../../server/src/schema';
 
 // Sample data for demonstration - this will be replaced with real backend data
@@ -56,8 +57,12 @@ function App() {
   // Form states
   const [showAddStudentForm, setShowAddStudentForm] = useState(false);
   const [showAddTeacherForm, setShowAddTeacherForm] = useState(false);
+  const [showAddClassForm, setShowAddClassForm] = useState(false);
+  const [showAddSubjectForm, setShowAddSubjectForm] = useState(false);
   const [isSubmittingStudent, setIsSubmittingStudent] = useState(false);
   const [isSubmittingTeacher, setIsSubmittingTeacher] = useState(false);
+  const [isSubmittingClass, setIsSubmittingClass] = useState(false);
+  const [isSubmittingSubject, setIsSubmittingSubject] = useState(false);
   const [formMessage, setFormMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // Student form data
@@ -82,6 +87,20 @@ function App() {
     name: '',
     email: '',
     employee_id: ''
+  });
+
+  // Class form data
+  const [classFormData, setClassFormData] = useState<CreateClassInput>({
+    name: '',
+    grade: '',
+    section: null
+  });
+
+  // Subject form data
+  const [subjectFormData, setSubjectFormData] = useState<CreateSubjectInput>({
+    name: '',
+    code: '',
+    description: null
   });
 
   // Load initial data
@@ -317,9 +336,93 @@ function App() {
     }
   };
 
+  // Class form handler
+  const handleAddClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingClass(true);
+    setFormMessage(null);
+
+    try {
+      // Validate form
+      if (!classFormData.name || !classFormData.grade) {
+        throw new Error('Nama kelas dan tingkat harus diisi');
+      }
+
+      const newClass = await trpc.createClass.mutate(classFormData);
+
+      // Update local state
+      setClasses((prev: Class[]) => [...prev, newClass]);
+
+      // Reset form
+      setClassFormData({
+        name: '',
+        grade: '',
+        section: null
+      });
+
+      setFormMessage({
+        type: 'success',
+        text: `Kelas ${classFormData.name} berhasil dibuat!`
+      });
+
+      setShowAddClassForm(false);
+    } catch (error) {
+      console.error('Failed to create class:', error);
+      setFormMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Gagal membuat kelas'
+      });
+    } finally {
+      setIsSubmittingClass(false);
+    }
+  };
+
+  // Subject form handler
+  const handleAddSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingSubject(true);
+    setFormMessage(null);
+
+    try {
+      // Validate form
+      if (!subjectFormData.name || !subjectFormData.code) {
+        throw new Error('Nama mata pelajaran dan kode harus diisi');
+      }
+
+      const newSubject = await trpc.createSubject.mutate(subjectFormData);
+
+      // Update local state
+      setSubjects((prev: Subject[]) => [...prev, newSubject]);
+
+      // Reset form
+      setSubjectFormData({
+        name: '',
+        code: '',
+        description: null
+      });
+
+      setFormMessage({
+        type: 'success',
+        text: `Mata pelajaran ${subjectFormData.name} berhasil ditambahkan!`
+      });
+
+      setShowAddSubjectForm(false);
+    } catch (error) {
+      console.error('Failed to create subject:', error);
+      setFormMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Gagal menambahkan mata pelajaran'
+      });
+    } finally {
+      setIsSubmittingSubject(false);
+    }
+  };
+
   const resetForms = () => {
     setShowAddStudentForm(false);
     setShowAddTeacherForm(false);
+    setShowAddClassForm(false);
+    setShowAddSubjectForm(false);
     setFormMessage(null);
     setStudentFormData({
       name: '',
@@ -331,6 +434,16 @@ function App() {
       name: '',
       email: '',
       employee_id: ''
+    });
+    setClassFormData({
+      name: '',
+      grade: '',
+      section: null
+    });
+    setSubjectFormData({
+      name: '',
+      code: '',
+      description: null
     });
   };
 
@@ -736,11 +849,25 @@ function App() {
                       <GraduationCap className="w-4 h-4 mr-2" />
                       Tambah Guru Baru
                     </Button>
-                    <Button className="w-full justify-start" variant="outline">
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline"
+                      onClick={() => {
+                        resetForms();
+                        setShowAddClassForm(true);
+                      }}
+                    >
                       <BookOpen className="w-4 h-4 mr-2" />
                       Buat Kelas Baru
                     </Button>
-                    <Button className="w-full justify-start" variant="outline">
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline"
+                      onClick={() => {
+                        resetForms();
+                        setShowAddSubjectForm(true);
+                      }}
+                    >
                       <BookOpen className="w-4 h-4 mr-2" />
                       Tambah Mata Pelajaran
                     </Button>
@@ -919,6 +1046,146 @@ function App() {
                           variant="outline" 
                           onClick={resetForms}
                           disabled={isSubmittingTeacher}
+                        >
+                          Batal
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Add Class Form */}
+              {showAddClassForm && (
+                <Card className="border-purple-200 bg-purple-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BookOpen className="w-5 h-5 text-purple-600" />
+                      <span>Buat Kelas Baru</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Isi formulir di bawah untuk membuat kelas baru
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleAddClass} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Nama Kelas *</label>
+                          <Input
+                            value={classFormData.name}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setClassFormData((prev: CreateClassInput) => ({ ...prev, name: e.target.value }))
+                            }
+                            placeholder="Contoh: Kelas 10 IPA"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Tingkat *</label>
+                          <Input
+                            value={classFormData.grade}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setClassFormData((prev: CreateClassInput) => ({ ...prev, grade: e.target.value }))
+                            }
+                            placeholder="Contoh: 10, 11, 12"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium mb-2 block">Bagian (opsional)</label>
+                          <Input
+                            value={classFormData.section || ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setClassFormData((prev: CreateClassInput) => ({
+                                ...prev,
+                                section: e.target.value || null
+                              }))
+                            }
+                            placeholder="Contoh: A, B, C (kosongkan jika tidak ada)"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 pt-4">
+                        <Button type="submit" disabled={isSubmittingClass}>
+                          {isSubmittingClass ? 'Membuat...' : 'Buat Kelas'}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={resetForms}
+                          disabled={isSubmittingClass}
+                        >
+                          Batal
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Add Subject Form */}
+              {showAddSubjectForm && (
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BookOpen className="w-5 h-5 text-orange-600" />
+                      <span>Tambah Mata Pelajaran Baru</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Isi formulir di bawah untuk menambahkan mata pelajaran baru
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleAddSubject} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Nama Mata Pelajaran *</label>
+                          <Input
+                            value={subjectFormData.name}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setSubjectFormData((prev: CreateSubjectInput) => ({ ...prev, name: e.target.value }))
+                            }
+                            placeholder="Contoh: Matematika, Fisika"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Kode Mata Pelajaran *</label>
+                          <Input
+                            value={subjectFormData.code}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setSubjectFormData((prev: CreateSubjectInput) => ({ ...prev, code: e.target.value }))
+                            }
+                            placeholder="Contoh: MATH101, PHYS101"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium mb-2 block">Deskripsi (opsional)</label>
+                          <Input
+                            value={subjectFormData.description || ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setSubjectFormData((prev: CreateSubjectInput) => ({
+                                ...prev,
+                                description: e.target.value || null
+                              }))
+                            }
+                            placeholder="Deskripsi singkat mata pelajaran"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 pt-4">
+                        <Button type="submit" disabled={isSubmittingSubject}>
+                          {isSubmittingSubject ? 'Menyimpan...' : 'Tambah Mata Pelajaran'}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={resetForms}
+                          disabled={isSubmittingSubject}
                         >
                           Batal
                         </Button>
