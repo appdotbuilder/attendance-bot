@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Users, BookOpen, GraduationCap, MessageSquare, Calendar, BarChart3 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle, Users, BookOpen, GraduationCap, MessageSquare, Calendar, BarChart3, CheckCircle, XCircle } from 'lucide-react';
 import { trpc } from '@/utils/trpc';
 import type { 
   User, Student, Teacher, Class, Subject,
-  ChatbotMessageInput
+  ChatbotMessageInput, CreateUserInput, CreateStudentInput, CreateTeacherInput
 } from '../../server/src/schema';
 
 // Sample data for demonstration - this will be replaced with real backend data
@@ -51,6 +52,37 @@ function App() {
   }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [isProcessingChat, setIsProcessingChat] = useState(false);
+
+  // Form states
+  const [showAddStudentForm, setShowAddStudentForm] = useState(false);
+  const [showAddTeacherForm, setShowAddTeacherForm] = useState(false);
+  const [isSubmittingStudent, setIsSubmittingStudent] = useState(false);
+  const [isSubmittingTeacher, setIsSubmittingTeacher] = useState(false);
+  const [formMessage, setFormMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  // Student form data
+  const [studentFormData, setStudentFormData] = useState<{
+    name: string;
+    email: string;
+    student_id: string;
+    class_id: string;
+  }>({
+    name: '',
+    email: '',
+    student_id: '',
+    class_id: ''
+  });
+
+  // Teacher form data
+  const [teacherFormData, setTeacherFormData] = useState<{
+    name: string;
+    email: string;
+    employee_id: string;
+  }>({
+    name: '',
+    email: '',
+    employee_id: ''
+  });
 
   // Load initial data
   const loadInitialData = useCallback(async () => {
@@ -172,13 +204,143 @@ function App() {
     }
   };
 
+  // Form handlers
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingStudent(true);
+    setFormMessage(null);
+
+    try {
+      // Validate form
+      if (!studentFormData.name || !studentFormData.email || !studentFormData.student_id || !studentFormData.class_id) {
+        throw new Error('Semua field harus diisi');
+      }
+
+      // Create user first
+      const userInput: CreateUserInput = {
+        name: studentFormData.name,
+        email: studentFormData.email,
+        role: 'student'
+      };
+
+      const newUser = await trpc.createUser.mutate(userInput);
+
+      // Create student record
+      const studentInput: CreateStudentInput = {
+        user_id: newUser.id,
+        student_id: studentFormData.student_id,
+        class_id: parseInt(studentFormData.class_id)
+      };
+
+      const newStudent = await trpc.createStudent.mutate(studentInput);
+
+      // Update local state
+      setStudents((prev: Student[]) => [...prev, newStudent]);
+
+      // Reset form
+      setStudentFormData({
+        name: '',
+        email: '',
+        student_id: '',
+        class_id: ''
+      });
+
+      setFormMessage({
+        type: 'success',
+        text: `Siswa ${studentFormData.name} berhasil ditambahkan!`
+      });
+
+      setShowAddStudentForm(false);
+    } catch (error) {
+      console.error('Failed to create student:', error);
+      setFormMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Gagal menambahkan siswa'
+      });
+    } finally {
+      setIsSubmittingStudent(false);
+    }
+  };
+
+  const handleAddTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingTeacher(true);
+    setFormMessage(null);
+
+    try {
+      // Validate form
+      if (!teacherFormData.name || !teacherFormData.email || !teacherFormData.employee_id) {
+        throw new Error('Semua field harus diisi');
+      }
+
+      // Create user first
+      const userInput: CreateUserInput = {
+        name: teacherFormData.name,
+        email: teacherFormData.email,
+        role: 'teacher'
+      };
+
+      const newUser = await trpc.createUser.mutate(userInput);
+
+      // Create teacher record
+      const teacherInput: CreateTeacherInput = {
+        user_id: newUser.id,
+        employee_id: teacherFormData.employee_id
+      };
+
+      const newTeacher = await trpc.createTeacher.mutate(teacherInput);
+
+      // Update local state
+      setTeachers((prev: Teacher[]) => [...prev, newTeacher]);
+
+      // Reset form
+      setTeacherFormData({
+        name: '',
+        email: '',
+        employee_id: ''
+      });
+
+      setFormMessage({
+        type: 'success',
+        text: `Guru ${teacherFormData.name} berhasil ditambahkan!`
+      });
+
+      setShowAddTeacherForm(false);
+    } catch (error) {
+      console.error('Failed to create teacher:', error);
+      setFormMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Gagal menambahkan guru'
+      });
+    } finally {
+      setIsSubmittingTeacher(false);
+    }
+  };
+
+  const resetForms = () => {
+    setShowAddStudentForm(false);
+    setShowAddTeacherForm(false);
+    setFormMessage(null);
+    setStudentFormData({
+      name: '',
+      email: '',
+      student_id: '',
+      class_id: ''
+    });
+    setTeacherFormData({
+      name: '',
+      email: '',
+      employee_id: ''
+    });
+  };
+
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <GraduationCap className="w-16 h-16 text-indigo-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Loading School Portal...</h1>
-          <p className="text-gray-600">Please wait while we set up your dashboard</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Memuat Portal Sekolah...</h1>
+          <p className="text-gray-600">Mohon tunggu sementara kami menyiapkan dashboard Anda</p>
         </div>
       </div>
     );
@@ -194,7 +356,7 @@ function App() {
               <GraduationCap className="w-8 h-8 text-indigo-600" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">SmartAttend 🎓</h1>
-                <p className="text-sm text-gray-600">AI-Powered Attendance Management</p>
+                <p className="text-sm text-gray-600">Manajemen Absensi Berbasis AI</p>
               </div>
             </div>
             
@@ -203,7 +365,7 @@ function App() {
                 <Alert className="py-2 px-3">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription className="text-sm">
-                    Demo Mode - Backend handlers are stubs
+                    Mode Demo - Handler backend masih dalam pengembangan
                   </AlertDescription>
                 </Alert>
               )}
@@ -215,14 +377,14 @@ function App() {
                   size="sm"
                   onClick={() => switchUserRole('student')}
                 >
-                  Student
+                  Siswa
                 </Button>
                 <Button
                   variant={currentUser.role === 'teacher' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => switchUserRole('teacher')}
                 >
-                  Teacher
+                  Guru
                 </Button>
                 <Button
                   variant={currentUser.role === 'admin' ? 'default' : 'outline'}
@@ -254,10 +416,10 @@ function App() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <MessageSquare className="w-5 h-5 text-indigo-600" />
-                    <span>AI Attendance Assistant 🤖</span>
+                    <span>Asisten Absensi AI 🤖</span>
                   </CardTitle>
                   <CardDescription>
-                    Chat with me to mark your attendance quickly and easily!
+                    Chat dengan saya untuk mencatat absensi dengan cepat dan mudah!
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -267,8 +429,8 @@ function App() {
                       {chatMessages.length === 0 ? (
                         <div className="text-center text-gray-500 mt-8">
                           <MessageSquare className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                          <p>Hi! I'm your attendance assistant. 👋</p>
-                          <p className="text-sm">Try saying: "I'm present today" or "Mark me sick"</p>
+                          <p>Halo! Saya asisten absensi Anda. 👋</p>
+                          <p className="text-sm">Coba katakan: "Saya hadir hari ini" atau "Tandai saya sakit"</p>
                         </div>
                       ) : (
                         chatMessages.map((msg) => (
@@ -294,7 +456,7 @@ function App() {
                       {isProcessingChat && (
                         <div className="flex justify-start">
                           <div className="bg-gray-100 p-3 rounded-lg">
-                            <p className="text-sm text-gray-600">AI is thinking... 💭</p>
+                            <p className="text-sm text-gray-600">AI sedang berpikir... 💭</p>
                           </div>
                         </div>
                       )}
@@ -305,7 +467,7 @@ function App() {
                       <Input
                         value={chatInput}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setChatInput(e.target.value)}
-                        placeholder="Type your message... (e.g., 'I'm present today')"
+                        placeholder="Ketik pesan Anda... (contoh: 'Saya hadir hari ini')"
                         onKeyPress={(e: React.KeyboardEvent) => {
                           if (e.key === 'Enter' && !isProcessingChat) {
                             handleChatMessage(chatInput);
@@ -317,7 +479,7 @@ function App() {
                         onClick={() => handleChatMessage(chatInput)}
                         disabled={!chatInput.trim() || isProcessingChat}
                       >
-                        Send
+                        Kirim
                       </Button>
                     </div>
                   </div>
@@ -329,14 +491,14 @@ function App() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Calendar className="w-5 h-5 text-green-600" />
-                    <span>Today's Status</span>
+                    <span>Status Hari Ini</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="text-center">
                       <p className="text-sm text-gray-600 mb-2">
-                        {new Date().toLocaleDateString('en-US', { 
+                        {new Date().toLocaleDateString('id-ID', { 
                           weekday: 'long',
                           year: 'numeric',
                           month: 'long',
@@ -344,18 +506,18 @@ function App() {
                         })}
                       </p>
                       <Badge className="bg-gray-100 text-gray-800 text-lg py-2 px-4">
-                        No attendance marked yet
+                        Belum absen hari ini
                       </Badge>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="text-center p-2 bg-green-50 rounded">
-                        <p className="font-medium text-green-800">Present</p>
-                        <p className="text-green-600">15 days</p>
+                        <p className="font-medium text-green-800">Hadir</p>
+                        <p className="text-green-600">15 hari</p>
                       </div>
                       <div className="text-center p-2 bg-red-50 rounded">
-                        <p className="font-medium text-red-800">Absent</p>
-                        <p className="text-red-600">2 days</p>
+                        <p className="font-medium text-red-800">Tidak Hadir</p>
+                        <p className="text-red-600">2 hari</p>
                       </div>
                     </div>
                   </div>
@@ -369,9 +531,9 @@ function App() {
         {currentUser.role === 'teacher' && (
           <Tabs defaultValue="attendance" className="space-y-6">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="attendance">View Attendance</TabsTrigger>
-              <TabsTrigger value="classes">My Classes</TabsTrigger>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="attendance">Lihat Absensi</TabsTrigger>
+              <TabsTrigger value="classes">Kelas Saya</TabsTrigger>
+              <TabsTrigger value="reports">Laporan</TabsTrigger>
             </TabsList>
 
             <TabsContent value="attendance" className="space-y-6">
@@ -379,14 +541,14 @@ function App() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Users className="w-5 h-5 text-blue-600" />
-                    <span>Class Attendance - Today</span>
+                    <span>Absensi Kelas - Hari Ini</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8 text-gray-500">
                     <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                    <p>No attendance records found</p>
-                    <p className="text-sm">Backend handlers are currently stubs</p>
+                    <p>Tidak ada catatan absensi ditemukan</p>
+                    <p className="text-sm">Handler backend masih dalam pengembangan</p>
                   </div>
                 </CardContent>
               </Card>
@@ -399,21 +561,21 @@ function App() {
                     <CardHeader>
                       <CardTitle className="text-lg">{cls.name}</CardTitle>
                       <CardDescription>
-                        Grade {cls.grade} {cls.section && `- Section ${cls.section}`}
+                        Kelas {cls.grade} {cls.section && `- Bagian ${cls.section}`}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span>Total Students:</span>
+                          <span>Total Siswa:</span>
                           <span className="font-medium">25</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Present Today:</span>
+                          <span>Hadir Hari Ini:</span>
                           <span className="font-medium text-green-600">22</span>
                         </div>
                         <Button size="sm" className="w-full mt-4">
-                          View Details
+                          Lihat Detail
                         </Button>
                       </div>
                     </CardContent>
@@ -427,14 +589,14 @@ function App() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <BarChart3 className="w-5 h-5 text-purple-600" />
-                    <span>Attendance Reports</span>
+                    <span>Laporan Absensi</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8 text-gray-500">
                     <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                    <p>Report generation coming soon</p>
-                    <p className="text-sm">Will show daily, weekly, and monthly attendance analytics</p>
+                    <p>Pembuatan laporan segera hadir</p>
+                    <p className="text-sm">Akan menampilkan analitik absensi harian, mingguan, dan bulanan</p>
                   </div>
                 </CardContent>
               </Card>
@@ -446,10 +608,10 @@ function App() {
         {currentUser.role === 'admin' && (
           <Tabs defaultValue="overview" className="space-y-6">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="manage">Manage Data</TabsTrigger>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="overview">Ringkasan</TabsTrigger>
+              <TabsTrigger value="manage">Kelola Data</TabsTrigger>
+              <TabsTrigger value="reports">Laporan</TabsTrigger>
+              <TabsTrigger value="settings">Pengaturan</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -458,12 +620,12 @@ function App() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center space-x-2">
                       <Users className="w-5 h-5 text-blue-600" />
-                      <span>Students</span>
+                      <span>Siswa</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-blue-600">{students.length}</p>
-                    <p className="text-sm text-gray-600">Total enrolled</p>
+                    <p className="text-sm text-gray-600">Total terdaftar</p>
                   </CardContent>
                 </Card>
 
@@ -471,12 +633,12 @@ function App() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center space-x-2">
                       <GraduationCap className="w-5 h-5 text-green-600" />
-                      <span>Teachers</span>
+                      <span>Guru</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-green-600">{teachers.length}</p>
-                    <p className="text-sm text-gray-600">Active faculty</p>
+                    <p className="text-sm text-gray-600">Tenaga pengajar aktif</p>
                   </CardContent>
                 </Card>
 
@@ -484,12 +646,12 @@ function App() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center space-x-2">
                       <BookOpen className="w-5 h-5 text-purple-600" />
-                      <span>Classes</span>
+                      <span>Kelas</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-purple-600">{classes.length}</p>
-                    <p className="text-sm text-gray-600">Total classes</p>
+                    <p className="text-sm text-gray-600">Total kelas</p>
                   </CardContent>
                 </Card>
 
@@ -497,35 +659,35 @@ function App() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center space-x-2">
                       <BookOpen className="w-5 h-5 text-orange-600" />
-                      <span>Subjects</span>
+                      <span>Mata Pelajaran</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold text-orange-600">{subjects.length}</p>
-                    <p className="text-sm text-gray-600">Available subjects</p>
+                    <p className="text-sm text-gray-600">Mata pelajaran tersedia</p>
                   </CardContent>
                 </Card>
               </div>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>System Status</CardTitle>
+                  <CardTitle>Status Sistem</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span>Backend Connection</span>
+                      <span>Koneksi Backend</span>
                       <Badge variant={isOnline ? "default" : "secondary"}>
-                        {isOnline ? "Connected" : "Demo Mode"}
+                        {isOnline ? "Terhubung" : "Mode Demo"}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>AI Chatbot</span>
-                      <Badge variant="default">Active</Badge>
+                      <span>Chatbot AI</span>
+                      <Badge variant="default">Aktif</Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Attendance System</span>
-                      <Badge variant="default">Operational</Badge>
+                      <span>Sistem Absensi</span>
+                      <Badge variant="default">Beroperasi</Badge>
                     </div>
                   </div>
                 </CardContent>
@@ -533,53 +695,238 @@ function App() {
             </TabsContent>
 
             <TabsContent value="manage" className="space-y-6">
+              {/* Form Messages */}
+              {formMessage && (
+                <Alert className={formMessage.type === 'success' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+                  {formMessage.type === 'success' ? 
+                    <CheckCircle className="h-4 w-4 text-green-600" /> : 
+                    <XCircle className="h-4 w-4 text-red-600" />
+                  }
+                  <AlertDescription className={formMessage.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+                    {formMessage.text}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="grid md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
+                    <CardTitle>Aksi Cepat</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Button className="w-full justify-start" variant="outline">
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline"
+                      onClick={() => {
+                        resetForms();
+                        setShowAddStudentForm(true);
+                      }}
+                    >
                       <Users className="w-4 h-4 mr-2" />
-                      Add New Student
+                      Tambah Siswa Baru
                     </Button>
-                    <Button className="w-full justify-start" variant="outline">
+                    <Button 
+                      className="w-full justify-start" 
+                      variant="outline"
+                      onClick={() => {
+                        resetForms();
+                        setShowAddTeacherForm(true);
+                      }}
+                    >
                       <GraduationCap className="w-4 h-4 mr-2" />
-                      Add New Teacher
+                      Tambah Guru Baru
                     </Button>
                     <Button className="w-full justify-start" variant="outline">
                       <BookOpen className="w-4 h-4 mr-2" />
-                      Create New Class
+                      Buat Kelas Baru
                     </Button>
                     <Button className="w-full justify-start" variant="outline">
                       <BookOpen className="w-4 h-4 mr-2" />
-                      Add New Subject
+                      Tambah Mata Pelajaran
                     </Button>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
+                    <CardTitle>Aktivitas Terbaru</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span>New student enrolled: John Doe</span>
+                        <span>Siswa baru terdaftar: John Doe</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span>Attendance marked via chatbot</span>
+                        <span>Absensi dicatat via chatbot</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                        <span>New class created: Grade 10 Science</span>
+                        <span>Kelas baru dibuat: Kelas 10 IPA</span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Add Student Form */}
+              {showAddStudentForm && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-blue-600" />
+                      <span>Tambah Siswa Baru</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Isi formulir di bawah untuk menambahkan siswa baru ke sistem
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleAddStudent} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Nama Lengkap *</label>
+                          <Input
+                            value={studentFormData.name}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setStudentFormData((prev) => ({ ...prev, name: e.target.value }))
+                            }
+                            placeholder="Masukkan nama lengkap siswa"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Email *</label>
+                          <Input
+                            type="email"
+                            value={studentFormData.email}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setStudentFormData((prev) => ({ ...prev, email: e.target.value }))
+                            }
+                            placeholder="siswa@sekolah.edu"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">NIS (Nomor Induk Siswa) *</label>
+                          <Input
+                            value={studentFormData.student_id}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setStudentFormData((prev) => ({ ...prev, student_id: e.target.value }))
+                            }
+                            placeholder="Contoh: STU001"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Kelas *</label>
+                          <Select
+                            value={studentFormData.class_id}
+                            onValueChange={(value: string) =>
+                              setStudentFormData((prev) => ({ ...prev, class_id: value }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih kelas" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {classes.map((cls: Class) => (
+                                <SelectItem key={cls.id} value={cls.id.toString()}>
+                                  {cls.name} - Kelas {cls.grade} {cls.section}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 pt-4">
+                        <Button type="submit" disabled={isSubmittingStudent}>
+                          {isSubmittingStudent ? 'Menyimpan...' : 'Tambah Siswa'}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={resetForms}
+                          disabled={isSubmittingStudent}
+                        >
+                          Batal
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Add Teacher Form */}
+              {showAddTeacherForm && (
+                <Card className="border-green-200 bg-green-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <GraduationCap className="w-5 h-5 text-green-600" />
+                      <span>Tambah Guru Baru</span>
+                    </CardTitle>
+                    <CardDescription>
+                      Isi formulir di bawah untuk menambahkan guru baru ke sistem
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleAddTeacher} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Nama Lengkap *</label>
+                          <Input
+                            value={teacherFormData.name}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setTeacherFormData((prev) => ({ ...prev, name: e.target.value }))
+                            }
+                            placeholder="Masukkan nama lengkap guru"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Email *</label>
+                          <Input
+                            type="email"
+                            value={teacherFormData.email}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setTeacherFormData((prev) => ({ ...prev, email: e.target.value }))
+                            }
+                            placeholder="guru@sekolah.edu"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium mb-2 block">NIP (Nomor Induk Pegawai) *</label>
+                          <Input
+                            value={teacherFormData.employee_id}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setTeacherFormData((prev) => ({ ...prev, employee_id: e.target.value }))
+                            }
+                            placeholder="Contoh: TEA001"
+                            required
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 pt-4">
+                        <Button type="submit" disabled={isSubmittingTeacher}>
+                          {isSubmittingTeacher ? 'Menyimpan...' : 'Tambah Guru'}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={resetForms}
+                          disabled={isSubmittingTeacher}
+                        >
+                          Batal
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="reports" className="space-y-6">
@@ -587,14 +934,14 @@ function App() {
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <BarChart3 className="w-5 h-5 text-indigo-600" />
-                    <span>Attendance Analytics</span>
+                    <span>Analitik Absensi</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-8 text-gray-500">
                     <BarChart3 className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                    <p>Advanced reporting dashboard coming soon</p>
-                    <p className="text-sm">Will include daily, weekly, monthly, per-subject, and per-student reports</p>
+                    <p>Dashboard laporan lanjutan segera hadir</p>
+                    <p className="text-sm">Akan mencakup laporan harian, mingguan, bulanan, per mata pelajaran, dan per siswa</p>
                   </div>
                 </CardContent>
               </Card>
@@ -603,27 +950,27 @@ function App() {
             <TabsContent value="settings" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>System Configuration</CardTitle>
+                  <CardTitle>Konfigurasi Sistem</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        This is a demonstration interface. Backend handlers are currently stub implementations.
-                        In a production environment, these would connect to a real database and AI service.
+                        Ini adalah antarmuka demonstrasi. Handler backend saat ini merupakan implementasi stub.
+                        Dalam lingkungan produksi, ini akan terhubung ke database dan layanan AI yang sebenarnya.
                       </AlertDescription>
                     </Alert>
                     
                     <div className="space-y-3">
-                      <h4 className="font-medium">Attendance Settings</h4>
+                      <h4 className="font-medium">Pengaturan Absensi</h4>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="text-sm font-medium">Late Threshold (minutes)</label>
+                          <label className="text-sm font-medium">Batas Terlambat (menit)</label>
                           <Input type="number" defaultValue="15" />
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Auto-mark Absent After</label>
+                          <label className="text-sm font-medium">Auto-tandai Tidak Hadir Setelah</label>
                           <Input type="time" defaultValue="09:30" />
                         </div>
                       </div>
