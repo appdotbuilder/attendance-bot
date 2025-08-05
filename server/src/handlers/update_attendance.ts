@@ -1,19 +1,43 @@
 
+import { db } from '../db';
+import { attendanceTable } from '../db/schema';
 import { type UpdateAttendanceInput, type Attendance } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateAttendance(input: UpdateAttendanceInput): Promise<Attendance> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating existing attendance records (for teacher corrections) and persisting changes in the database.
-    return Promise.resolve({
-        id: input.id,
-        student_id: 0, // These would be fetched from existing record
-        subject_id: 0,
-        class_id: 0,
-        date: new Date(),
-        status: input.status || 'present',
-        notes: input.notes || null,
-        marked_by: input.updated_by,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Attendance);
-}
+export const updateAttendance = async (input: UpdateAttendanceInput): Promise<Attendance> => {
+  try {
+    // Build update object with only provided fields
+    const updateData: any = {
+      updated_at: new Date()
+    };
+
+    if (input.status !== undefined) {
+      updateData.status = input.status;
+    }
+
+    if (input.notes !== undefined) {
+      updateData.notes = input.notes;
+    }
+
+    // Update attendance record
+    const result = await db.update(attendanceTable)
+      .set(updateData)
+      .where(eq(attendanceTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Attendance record with id ${input.id} not found`);
+    }
+
+    // Convert date string to Date object for the return type
+    const attendance = result[0];
+    return {
+      ...attendance,
+      date: new Date(attendance.date)
+    };
+  } catch (error) {
+    console.error('Attendance update failed:', error);
+    throw error;
+  }
+};

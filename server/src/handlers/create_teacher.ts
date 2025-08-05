@@ -1,14 +1,23 @@
 
+import { db } from '../db';
+import { teachersTable } from '../db/schema';
 import { type CreateTeacherInput, type Teacher } from '../schema';
 
-export async function createTeacher(input: CreateTeacherInput): Promise<Teacher> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new teacher record linked to a user and persisting it in the database.
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+export const createTeacher = async (input: CreateTeacherInput): Promise<Teacher> => {
+  try {
+    // Insert teacher record
+    const result = await db.insert(teachersTable)
+      .values({
         user_id: input.user_id,
-        employee_id: input.employee_id,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Teacher);
-}
+        employee_id: input.employee_id
+      })
+      .returning()
+      .execute();
+
+    const teacher = result[0];
+    return teacher;
+  } catch (error) {
+    console.error('Teacher creation failed:', error);
+    throw error;
+  }
+};
